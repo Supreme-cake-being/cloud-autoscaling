@@ -1,0 +1,79 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+build/
+dist/
+
+# === Віртуальне середовище ===
+venv/
+.venv/
+env/
+
+# === Jupyter ===
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# === Дані (Модуль 1) ===
+# Важкі файли (сирі trace-архіви Alibaba, синтетичні csv, npz-послідовності)
+# не тримаємо в git — кожен, хто клонує репо, генерує/завантажує їх сам
+# (data_generator.py / load_alibaba_data.py). Інакше репозиторій
+# роздується на гігабайти, а GitHub має ліміт 100MB на файл.
+data_pipeline/data/*
+!data_pipeline/data/.gitkeep
+*.tar.gz
+*.npz
+
+# Винятки: невеликий приклад синтетичних даних лишаємо в репо
+# для відтворюваності — див. .gitkeep нижче, розкоментуйте якщо потрібно
+# !data_pipeline/data/synthetic_cluster_load.csv
+
+# === Моделі (Модуль 2) ===
+# Навчені ваги теж важкі й відтворювані повторним запуском тренування —
+# не зберігаємо в git, лише код, який їх генерує
+forecasting/models/*
+!forecasting/models/.gitkeep
+*.h5
+*.pkl
+*.keras
+*.pt
+*.onnx
+
+# === Результати експериментів (Модулі 2 та 4) ===
+# Графіки/метрики з реальних прогонів варто комітити вибірково для
+# фінальної версії роботи, а не автоматично на кожен запуск —
+# тому ігноруємо за замовчуванням і додаємо вручну (git add -f) те,
+# що йде в текст диплома
+forecasting/results/*
+testing/results/*
+!forecasting/results/.gitkeep
+!testing/results/.gitkeep
+
+# === Секрети інфраструктури (K8s / Docker / Prometheus) ===
+# kubeconfig та .env можуть містити токени доступу до кластера/хмари —
+# КРИТИЧНО не комітити, особливо якщо репозиторій публічний
+infra/k8s/*secret*.yaml
+infra/**/kubeconfig
+.env
+.env.*
+*.pem
+*.key
+
+# === Робочі/debug графіки Модуля 1 ===
+# EDA-графіки для швидкої перевірки під час розробки — не для диплома
+# (фінальні версії з правильним форматуванням йдуть у thesis_materials/figures)
+data_pipeline/plots/*.png
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Логи ===
+*.log
+logs/
