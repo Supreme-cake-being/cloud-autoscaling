@@ -1,2 +1,21 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Нормалізація переносу рядків: у команді можуть бути Windows (CRLF) та
+# Linux/macOS (LF) машини — без цього git plutatиме діффи через самі
+# лише зміни \r\n на кожному коміті
+* text=auto eol=lf
+
+# Явно текстові файли (для однозначності поверх auto-detect)
+*.py text
+*.md text
+*.yaml text
+*.yml text
+*.json text
+*.csv text
+
+# Бінарні файли — git не повинен намагатись показувати diff чи
+# конвертувати переноси рядків усередині них
+*.png binary
+*.jpg binary
+*.h5 binary
+*.pkl binary
+*.npz binary
+*.tar.gz binary
