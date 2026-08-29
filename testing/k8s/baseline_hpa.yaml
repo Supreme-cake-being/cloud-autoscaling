@@ -1,0 +1,33 @@
+# Baseline: стандартний Kubernetes Horizontal Pod Autoscaler.
+# Використовується для порівняння з гібридною методикою (Модуль 3) під
+# час живого тестування, коли буде доступний кластер.
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: autoscaling-demo-service-baseline-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: autoscaling-demo-service
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # 70% — той самий target_utilization, що й у
+          # testing/baseline_scaler.py (BaselineConfig), для
+          # узгодженості між симуляцією та живим тестом
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      # Дефолтний stabilization window K8s (300с) — навмисно довший за
+      # scaleUp, щоб уникнути передчасного зменшення реплік
+      stabilizationWindowSeconds: 180
+    scaleUp:
+      stabilizationWindowSeconds: 0
