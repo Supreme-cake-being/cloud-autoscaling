@@ -9,23 +9,41 @@ scaling_logic/
 ├── queuing_corrector.py     # реактивний рівень: теорія черг (M/M/c, Erlang C)
 ├── k8s_client.py             # інтеграція з Kubernetes API (dry-run за замовчуванням)
 ├── autoscaler.py             # orchestrator: об'єднує все в один цикл
+├── sanity_checks.py           # перевірка коректності математики на простих числах
 └── README.md
 ```
 
 ## Запуск (кожен файл можна тестувати ізольовано, без K8s-кластера)
 
 ```bash
+pip install kubernetes
+
 cd scaling_logic
 python decision_engine.py      # демо cooldown-механізму
 python queuing_corrector.py    # демо реактивного коректора на сплеску
 python k8s_client.py            # демо dry-run режиму
 python autoscaler.py            # демо повного гібридного циклу
+python sanity_checks.py         # перевірка коректності математики
 ```
 
-Усе працює **без підключеного Kubernetes-кластера** — `K8sScaler` за
-замовчуванням у dry-run режимі (лише друкує дію, не звертається до
-кластера). Коли підключите Minikube/Docker Desktop K8s/реальний
-кластер — просто передайте `dry_run=False`.
+## Статус K8sScaler: dry-run у всіх результатах роботи
+
+`K8sScaler` (`k8s_client.py`) підтримує два режими: `dry_run=True`
+(за замовчуванням, лише друкує дію, не звертається до кластера) і
+`dry_run=False` (реальні виклики Kubernetes API). **Усі результати
+цієї кваліфікаційної роботи отримані в dry-run режимі** — спроба
+живого підключення до Kubernetes (Docker Desktop K8s) була зроблена
+на етапі Модуля 4, але зупинена через проблеми ініціалізації
+локального кластера (деталі й обґрунтування — `testing/README.md`,
+секція "Статус живого тестування").
+
+Це не впливає на коректність логіки: `decision_engine.py` і
+`queuing_corrector.py` — чиста математика, повністю перевірена
+незалежно від наявності кластера (`sanity_checks.py`). `k8s_client.py`
+відповідає лише за "останню милю" (як застосувати вже прийняте
+рішення) — саме тому ця архітектура (відділення "що вирішити" від
+"як застосувати") дозволяє перевірити методику навіть без живої
+інфраструктури.
 
 ## Архітектура рішення
 
@@ -36,9 +54,9 @@ replicas = clamp(ceil(predicted_load * safety_factor / capacity_per_replica),
                   min_replicas, max_replicas)
 ```
 
-З cooldown-захистом від flapping (тремтіння) — після зміни кількості
-реплік наступні `cooldown_seconds` секунд повертається попереднє
-значення, навіть якщо новий розрахунок інший.
+З cooldown-захистом від flapping — після зміни кількості реплік
+наступні `cooldown_seconds` секунд повертається попереднє значення,
+навіть якщо новий розрахунок інший.
 
 **Реактивний коректор** (`queuing_corrector.py`):
 Теорія черг M/M/c + формула Erlang C — рахує мінімальну кількість
@@ -49,39 +67,15 @@ replicas = clamp(ceil(predicted_load * safety_factor / capacity_per_replica),
 
 **Фінальне рішення** = `max(proactive, reactive)`.
 
-## Підключення реального прогнозу з Модуля 2
-
-Зараз `autoscaler.py` демонструється на вручну заданих числах
-(`predicted_load_rps`, `current_actual_rps`). Для реальної інтеграції:
-
-```python
-import sys
-sys.path.insert(0, "../forecasting")
-import tensorflow as tf
-
-model = tf.keras.models.load_model("../forecasting/models/lstm_best.keras")
-# ... отримати останні 60 хв метрик, прогнати через model.predict(),
-# денормалізувати через scaler.inverse_transform() (див. Модуль 2,
-# evaluate.py::compare_models для прикладу денормалізації)
-predicted_rps = ...
-
-autoscaler.run_cycle(predicted_load_rps=predicted_rps, current_actual_rps=live_rps_from_prometheus)
-```
-
-Повна інтеграція з живими метриками (Prometheus) та тестовим
-навантаженням (Locust) — Модуль 4.
-
 ## Підбір параметрів під ваш тестовий сервіс
 
 `capacity_per_replica_rps`, `service_rate_per_replica` та
-`max_wait_time_sec` у `config.py` зараз орієнтовні. Коли розгорнете
-тестовий сервіс під Locust (Модуль 4), варто відкалібрувати ці числа
-під реальні виміри пропускної здатності одного пода — інакше
-розрахунки коректні математично, але не відображають реальну ємність
-вашого конкретного сервісу.
+`max_wait_time_sec` у `config.py` — орієнтовні значення, узгоджені з
+тестовим сервісом Модуля 4 (`testing/test_service/`). При зміні
+характеристик сервісу варто відкалібрувати ці числа під реальні виміри.
 
 ## Наступний крок — Модуль 4 (testing)
 
-Генерація реалістичного навантаження через Locust, порівняння з
-baseline (стандартний Kubernetes HPA), метрики: latency P95/P99,
-порушення SLA, утилізація CPU, вартість ресурсів.
+Симуляційне порівняння гібридної методики з baseline (порогове
+масштабування), sensitivity-аналіз, та (опційно, за наявності стабільного
+кластера) живе тестування через Locust.

@@ -1,19 +1,22 @@
-# === Модуль 1: Дані ===
+# === Модуль 1: Дані (data_pipeline) ===
 pandas==2.2.2
 numpy==1.26.4
 scikit-learn==1.5.0
 matplotlib==3.9.0
 statsmodels==0.14.2
 
-# === Модуль 2: ML-прогнозування ===
+# === Модуль 2: ML-прогнозування (forecasting) ===
 tensorflow==2.21.0
 prophet==1.4.0
 
-# === Модуль 3: Kubernetes-інтеграція (додасться далі) ===
-kubernetes==30.1.0
+# === Модуль 3: Kubernetes-інтеграція (scaling_logic) ===
+# Потрібен лише якщо dry_run=False (підключений реальний кластер)
+kubernetes==31.0.0
 
-# === Модуль 4: Навантажувальне тестування (додасться далі) ===
-# locust==2.29.1
+# === Модуль 4: Навантажувальне тестування (testing) ===
+# Потрібен лише для живого тесту через locustfile.py (не для
+# simulate_comparison.py — той працює на чистому pandas/numpy/matplotlib)
+locust==2.29.1
 
 # === Jupyter (для notebooks/) ===
 jupyter==1.0.0
