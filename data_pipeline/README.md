@@ -53,12 +53,12 @@ trace.
 
 ```bash
 #!/bin/bash
-url='http://aliopentrace.oss-cn-beijing.aliyuncs.com/v2018Traces'
+cd data_pipeline
 mkdir -p data && cd data
-wget -c --retry-connrefused --tries=0 --timeout=50 ${url}/machine_meta.tar.gz
-wget -c --retry-connrefused --tries=0 --timeout=50 ${url}/machine_usage.tar.gz
-tar -xzf machine_meta.tar.gz
+curl -L -C - -O http://aliopentrace.oss-cn-beijing.aliyuncs.com/v2018Traces/machine_usage.tar.gz
+sha256sum machine_usage.tar.gz
 tar -xzf machine_usage.tar.gz
+ls -lh machine_usage.csv
 ```
 
 ### Крок 2 — конвертувати у формат пайплайну

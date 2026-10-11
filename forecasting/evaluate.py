@@ -25,9 +25,25 @@
                                        (ділення на малі числа роздуває
                                        MAPE) — тому подаємо як
                                        допоміжну, а не головну метрику
+
+Використання (запускати з теки forecasting/):
+    python evaluate.py --dataset synthetic
+    python evaluate.py --dataset alibaba --skip-prophet
+
+--dataset визначає ВСЕ разом: CSV з даними, модель LSTM
+(models/lstm_<dataset>.keras), кеш Prophet (models/prophet_<dataset>.json)
+і файл результатів (results/metrics_<dataset>.csv). Це гарантує, що модель
+оцінюється саме на тому наборі даних, на якому навчалась: тестова вибірка
+і scaler відновлюються з CSV, тому змішування наборів дає хибні метрики.
 """
 
 import os
+
+# TensorFlow імпортуємо ПЕРШИМ — до numpy/pandas/scikit-learn. На частині
+# Windows-конфігурацій зворотний порядок завершується помилкою завантаження
+# нативних бібліотек TensorFlow ("DLL load failed ... 0x45A"); на інших
+# платформах порядок імпортів не має значення.
+import tensorflow as tf
 
 import numpy as np
 import pandas as pd
@@ -120,23 +136,52 @@ if __name__ == "__main__":
     parser.add_argument(
         "--retrain-prophet", action="store_true",
         help="Примусово перенавчити Prophet, навіть якщо є збережена модель "
-             "у models/prophet_model.json (за замовчуванням використовується "
+             "у models/prophet_<dataset>.json (за замовчуванням використовується "
              "кеш, якщо він є — навчання займає ~10-15 сек, але для "
              "відтворюваності результатів у роботі краще не тренувати щоразу)",
     )
+    parser.add_argument(
+        "--dataset", choices=["synthetic", "alibaba"], default="synthetic",
+        help="Набір даних для оцінки (default: synthetic). Визначає CSV, модель "
+             "LSTM, кеш Prophet і файл результатів.",
+    )
+    parser.add_argument(
+        "--model", default=None,
+        help="Шлях до моделі LSTM (.keras). За замовчуванням models/lstm_<dataset>.keras",
+    )
     args = parser.parse_args()
 
-    import tensorflow as tf
     from preprocessing import clean_data, split_and_scale, create_sequences
 
-    df = pd.read_csv("../data_pipeline/data/synthetic_cluster_load.csv", parse_dates=["timestamp"])
+    data_paths = {
+        "synthetic": "../data_pipeline/data/synthetic_cluster_load.csv",
+        "alibaba": "../data_pipeline/data/alibaba_cluster_load.csv",
+    }
+    data_path = data_paths[args.dataset]
+    lstm_path = args.model or f"models/lstm_{args.dataset}.keras"
+    prophet_path = f"models/prophet_{args.dataset}.json"
+    results_path = f"results/metrics_{args.dataset}.csv"
+
+    if not os.path.exists(data_path):
+        sys.exit(f"[!] Не знайдено дані: {data_path}")
+    if not os.path.exists(lstm_path):
+        sys.exit(
+            f"[!] Не знайдено модель LSTM: {lstm_path}\n"
+            f"    Після навчання перейменуйте models/lstm_best.keras у {lstm_path} "
+            f"(або вкажіть шлях через --model)."
+        )
+
+    print(f"Набір даних: {args.dataset} ({data_path})")
+    print(f"Модель LSTM: {lstm_path}\n")
+
+    df = pd.read_csv(data_path, parse_dates=["timestamp"])
     cleaned = clean_data(df)
     features = ["cpu_util", "mem_util", "rps", "net_in"]
     scaled = split_and_scale(cleaned, features)
 
     X_test, y_test = create_sequences(scaled.test, window_size=60, horizon=15, target_col_idx=0)
 
-    model = tf.keras.models.load_model("models/lstm_best.keras")
+    model = tf.keras.models.load_model(lstm_path)
     lstm_pred = model.predict(X_test, verbose=0).flatten()
     naive_pred = naive_persistence_baseline(X_test)
 
@@ -155,7 +200,7 @@ if __name__ == "__main__":
             prophet_train = prepare_prophet_data(cleaned.iloc[:train_end])
             prophet_test = prepare_prophet_data(cleaned.iloc[train_end:])
 
-            model_path = "models/prophet_model.json"
+            model_path = prophet_path
             if os.path.exists(model_path) and not args.retrain_prophet:
                 print(f"Завантаження збереженої Prophet-моделі ({model_path})...")
                 prophet_model = load_prophet_model(model_path)
@@ -181,5 +226,5 @@ if __name__ == "__main__":
     print("\n" + results.to_string(index=False))
 
     os.makedirs("results", exist_ok=True)
-    results.to_csv("results/metrics_comparison.csv", index=False)
-    print("\nЗбережено -> results/metrics_comparison.csv")
+    results.to_csv(results_path, index=False)
+    print(f"\nЗбережено -> {results_path}")
