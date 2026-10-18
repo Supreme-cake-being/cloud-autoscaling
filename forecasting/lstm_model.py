@@ -109,8 +109,8 @@ def train_lstm(
            від розміру даних.
     """
     if units is None:
-        units = _auto_select_units(len(X_train))
-        print(f"Auto-обрана архітектура під {len(X_train)} train-прикладів: LSTM{units}")
+        units = (64, 32)  # єдина конфігурація для всіх наборів даних
+        print(f"Архітектура: LSTM{units}")
 
     model = build_lstm_model(window_size, n_features, units=units)
 
